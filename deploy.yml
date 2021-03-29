@@ -1,0 +1,45 @@
+---
+- hosts: redirectors
+  name: Deploy redirection
+  remote_user: ubuntu
+  become: True
+  become_method: sudo
+  vars:
+          ansible_python_interpreter: /usr/bin/python3
+
+  tasks:
+          - name: Install prereqs
+            apt: 
+              name:
+                    - wireguard-dkms
+                    - curl
+              state: present
+              force: yes
+              update_cache: yes
+              cache_valid_time: 3600
+
+          - name: transfer wireguard script
+            copy: src=./wireguard_config.sh dest=~/wireguard_config.sh owner=root group=root mode=0777
+
+          - name: run wireguard script
+            command: /bin/bash ~/wireguard_config.sh
+            become: yes
+
+          - name: get wireguard client config
+            fetch: src=~/wg0_client.conf dest=./wg0.conf
+            become: yes
+
+          - name: transfer iptables script
+            copy: src=./iptables_rules.sh dest=~/iptables_rules.sh owner=root group=root mode=0777
+
+          - name: run iptables script
+            command: /bin/bash ~/iptables_rules.sh
+            become: yes
+
+          - name: enable ip forwarding
+            sysctl: name="net.ipv4.ip_forward" value=1 sysctl_set=yes
+            become: yes
+
+          - name: start wireguard
+            command: /usr/bin/wg-quick up wg0
+            become: yes
